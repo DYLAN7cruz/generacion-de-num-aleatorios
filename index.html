@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Generador Congruencial Lineal (LCG)</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div class="app">
+        <div class="panel">
+            <h1>Generador Congruencial Lineal (LCG)</h1>
+
+            <form id="form" class="inputs">
+                <div>
+                    <label for="x0">Semilla X₀</label>
+                    <input id="x0" type="number" value="6" required />
+                </div>
+                <div>
+                    <label for="k">k (a = 1 + 4k)</label>
+                    <input id="k" type="number" value="3" required />
+                </div>
+                <div>
+                    <label for="g">g (m = 2^g)</label>
+                    <input id="g" type="number" value="3" required />
+                </div>
+                <div>
+                    <label for="c">c (entero, ideal coprimo con m)</label>
+                    <input id="c" type="number" value="7" required />
+                </div>
+                <div>
+                    <label for="n">N (≥ 100)</label>
+                    <input id="n" type="number" value="120" required />
+                </div>
+
+                <div class="btns">
+                    <button type="button" class="primary" id="btnGenerar">Generar</button>
+                    <button type="button" id="btnReiniciar">Reiniciar</button>
+                </div>
+            </form>
+
+            <div id="msg" class="hint" style="margin-top:6px"></div>
+        </div>
+
+        <div class="grid">
+            <div class="panel">
+                <h2 class="panel-title">Resultados</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:80px">k</th>
+                                <th>X<sub>k</sub></th>
+                                <th>X<sub>k+1</sub></th>
+                                <th>r<sub>i</sub> = X<sub>i+1</sub>/(m−1)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2 class="panel-title">Diagrama de dispersión (índice vs r<sub>i</sub>)</h2>
+                <canvas id="chart" width="900" height="420" aria-label="Scatter plot"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
