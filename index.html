@@ -13,7 +13,7 @@
         <div class="panel">
             <h1>Generador Congruencial Lineal (LCG)</h1>
 
-            <form id="form" class="inputs">
+            <form id="form" class="inputs" onsubmit="return false;">
                 <div>
                     <label for="x0">Semilla X₀</label>
                     <input id="x0" type="number" value="6" required />
@@ -23,16 +23,17 @@
                     <input id="k" type="number" value="3" required />
                 </div>
                 <div>
-                    <label for="g">g (m = 2^g)</label>
-                    <input id="g" type="number" value="3" required />
-                </div>
-                <div>
                     <label for="c">c (entero, ideal coprimo con m)</label>
                     <input id="c" type="number" value="7" required />
                 </div>
                 <div>
-                    <label for="n">N (≥ 100)</label>
+                    <label for="n">N (cantidad a generar, ≥ 100)</label>
                     <input id="n" type="number" value="120" required />
+                </div>
+                <div>
+                    <label for="m">m (derivado, m = 2^g)</label>
+                    <!-- bloqueado para edición, solo muestra el valor calculado -->
+                    <input id="m" type="number" value="128" readonly disabled />
                 </div>
 
                 <div class="btns">
@@ -42,6 +43,7 @@
             </form>
 
             <div id="msg" class="hint" style="margin-top:6px"></div>
+            <div id="derived" class="calc-line"></div>
         </div>
 
         <div class="grid">
