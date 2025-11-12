@@ -4,6 +4,8 @@ const msg = $("msg");
 const tbody = $("tbody");
 const canvas = $("chart");
 const ctx = canvas.getContext("2d");
+const testsSummary = $("tests-summary");
+const btnRegenerar = $("btnRegenerar");
 
 function isNum(v){ return Number.isFinite(Number(v)); }
 function markBad(el, bad){ if(!el) return; el.classList.toggle("bad", !!bad); }
@@ -99,6 +101,112 @@ function lcg({ a, c, m, x0, n }){
   return rows;
 }
 
+// ========= Pruebas de UNIFORMIDAD e INDEPENDENCIA =========
+
+// Prueba de uniformidad: chi-cuadrado con 10 intervalos en [0,1]
+function testUniformity(riList){
+  const k = 10;
+  const n = riList.length;
+  if (n === 0) return { pass: false, chi2: 0, crit: 0 };
+
+  const bins = new Array(k).fill(0);
+  riList.forEach(v => {
+    let idx = Math.floor(v * k);
+    if (idx === k) idx = k - 1;
+    bins[idx]++;
+  });
+
+  const expected = n / k;
+  let chi2 = 0;
+  for (let i = 0; i < k; i++){
+    const diff = bins[i] - expected;
+    chi2 += (diff * diff) / expected;
+  }
+
+  // valor crítico para chi-cuadrado con 9 grados de libertad, α=0.05 ≈ 16.92
+  const chi2Crit = 16.92;
+  return {
+    pass: chi2 < chi2Crit,
+    chi2,
+    crit: chi2Crit,
+    bins
+  };
+}
+
+// Prueba de independencia: correlación entre r_i y r_{i+1}
+function testIndependence(riList){
+  const n = riList.length;
+  if (n < 3) {
+    return { pass: false, corr: 0 };
+  }
+
+  const m = n - 1;
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+
+  for (let i = 0; i < m; i++){
+    const x = riList[i];
+    const y = riList[i+1];
+    sumX  += x;
+    sumY  += y;
+    sumXY += x * y;
+    sumX2 += x * x;
+    sumY2 += y * y;
+  }
+
+  const num = m * sumXY - sumX * sumY;
+  const den = Math.sqrt(
+    (m * sumX2 - sumX * sumX) *
+    (m * sumY2 - sumY * sumY)
+  );
+
+  const corr = den === 0 ? 0 : num / den;
+  // Umbral simple: |ρ| < 0.1 ⇒ no hay correlación "evidente"
+  const pass = Math.abs(corr) < 0.1;
+
+  return { pass, corr };
+}
+
+// Ejecuta ambas pruebas y actualiza la UI
+function runTests(rows){
+  if (!testsSummary || !rows || rows.length === 0){
+    if (testsSummary) testsSummary.innerHTML = "";
+    if (btnRegenerar) btnRegenerar.disabled = true;
+    return;
+  }
+
+  const riList = rows.map(r => r.ri);
+
+  const uni = testUniformity(riList);
+  const indep = testIndependence(riList);
+  const globalPass = uni.pass && indep.pass;
+
+  const uniText = uni.pass ? "Aprobada" : "No aprobada";
+  const indepText = indep.pass ? "Aprobada" : "No aprobada";
+  const globalText = globalPass
+    ? "Los números generados SON válidos según las pruebas."
+    : "Los números generados NO son válidos según las pruebas.";
+
+  testsSummary.innerHTML = `
+    <p><strong>Prueba de uniformidad</strong>:
+      <span class="${uni.pass ? "pass" : "fail"}">${uniText}</span>
+      (χ² = ${uni.chi2.toFixed(2)}, crítico ≈ ${uni.crit.toFixed(2)})
+    </p>
+    <p><strong>Prueba de independencia</strong>:
+      <span class="${indep.pass ? "pass" : "fail"}">${indepText}</span>
+      (ρ ≈ ${indep.corr.toFixed(3)}, se acepta si |ρ| &lt; 0.1)
+    </p>
+    <p class="global">
+      <strong>Conclusión:</strong>
+      <span class="${globalPass ? "pass" : "fail"}">${globalText}</span>
+    </p>
+  `;
+
+  // Botón de regenerar: solo habilitado si NO pasan las pruebas
+  if (btnRegenerar){
+    btnRegenerar.disabled = globalPass;
+  }
+}
+
 // ========= render de tabla =========
 function renderTabla(rows){
   tbody.innerHTML = "";
@@ -158,6 +266,7 @@ function generar(){
   const rows = lcg(val);      // genera EXACTAMENTE n filas
   renderTabla(rows);
   renderScatter(rows);
+  runTests(rows);             // ejecutar pruebas al generar
 }
 
 function reiniciar(){
@@ -167,11 +276,22 @@ function reiniciar(){
   msg.textContent="";
   renderScatter([]); // ejes vacíos
   updateDerived();
+
+  if (testsSummary) testsSummary.innerHTML = "";
+  if (btnRegenerar) btnRegenerar.disabled = true;
 }
 
 // init
 $("btnGenerar").addEventListener("click", generar);
 $("btnReiniciar").addEventListener("click", reiniciar);
 $("n").addEventListener("input", updateDerived);
-updateDerived();          // pinta “Para N = … ⇒ g = … (m = 2^g = …)” y el input m
+
+if (btnRegenerar){
+  btnRegenerar.addEventListener("click", () => {
+    // Simplemente vuelve a generar con los parámetros actuales
+    generar();
+  });
+}
+
+updateDerived();          // pinta “Para N = … ⇒ g = … (m = 2^g = …)”
 renderScatter([]);        // dibujo ejes al inicio

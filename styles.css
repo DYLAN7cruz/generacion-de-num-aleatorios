@@ -297,3 +297,37 @@ canvas:hover {
         grid-template-columns: repeat(2, minmax(140px, 1fr))
     }
 }
+
+/* ===== Pruebas de validación ===== */
+.tests-summary {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+}
+
+.tests-summary p {
+    margin: 4px 0;
+}
+
+.tests-summary .pass {
+    color: var(--success);
+    font-weight: 600;
+}
+
+.tests-summary .fail {
+    color: var(--error);
+    font-weight: 600;
+}
+
+.tests-summary .global {
+    margin-top: 8px;
+    font-size: 14px;
+}
+
+/* Botones deshabilitados (por ejemplo, Regenerar al inicio) */
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
