@@ -25,7 +25,6 @@ function updateDerived(){
   if (Number.isInteger(n) && n >= 1){
     const { g, m } = gmFromN(n);
     el.textContent = `Para N = ${n} ⇒ g = ${g} (m = 2^${g} = ${m}).`;
-    // pintar el input m (bloqueado) con el valor calculado
     $("m").value = m;
   } else {
     el.textContent = "";
@@ -67,9 +66,8 @@ function validar(){
     if(!ok) return { ok:false };
   }
 
-  // actualizar UI informativa
   msg.innerHTML = `<span class="ok">Parámetros válidos. (a = ${a}, m = ${m}, g = ${g}).</span>`;
-  $("m").value = m;        // asegura que el input m muestre el valor
+  $("m").value = m;
   updateDerived();
 
   return { ok:true, a, c, m, x0, n };
@@ -84,14 +82,14 @@ function lcg({ a, c, m, x0, n }){
 
   for(let k=0; k<n; k++){
     const Xk = X;
-    if(repeatStart===null && seen.has(Number(Xk))) repeatStart = k; // primera repetición detectada
+    if(repeatStart===null && seen.has(Number(Xk))) repeatStart = k;
     const Xnext = (A*Xk + C) % M;
 
     rows.push({
       k,
       Xk: Number(Xk),
       Xnext: Number(Xnext),
-      ri: Number(Xnext) / (m - 1),          // normalización para tabla/gráfico
+      ri: Number(Xnext) / (m - 1),
       repeat: repeatStart!==null && k>=repeatStart
     });
 
@@ -166,7 +164,56 @@ function testIndependence(riList){
   return { pass, corr };
 }
 
-// Ejecuta ambas pruebas y actualiza la UI
+// ========= Prueba de MEDIA =========
+function testMean(riList){
+  const n = riList.length;
+  if (n === 0) return { pass:false, mean:0, lower:0, upper:0 };
+
+  const expected = 0.5;
+  let sum = 0;
+  for (const v of riList) sum += v;
+  const mean = sum / n;
+
+  const sigma2 = 1/12;              // varianza teórica U(0,1)
+  const se = Math.sqrt(sigma2 / n); // error estándar de la media
+  const zCrit = 1.96;               // 95% de confianza
+  const lower = expected - zCrit * se;
+  const upper = expected + zCrit * se;
+  const pass = mean >= lower && mean <= upper;
+
+  return { pass, mean, lower, upper };
+}
+
+// ========= Prueba de VARIANZA =========
+function testVariance(riList){
+  const n = riList.length;
+  if (n < 2) return { pass:false, variance:0, lower:0, upper:0 };
+
+  let sum = 0, sum2 = 0;
+  for (const v of riList){
+    sum  += v;
+    sum2 += v * v;
+  }
+  const mean = sum / n;
+  const variance = (sum2 - n * mean * mean) / (n - 1); // varianza muestral
+
+  const sigma2 = 1/12;   // varianza teórica
+  const mu4 = 1/80;      // cuarto momento central teórico de U(0,1)
+  const nf = n;
+
+  // Varianza aproximada de la varianza muestral
+  const var_s2 = (mu4 - ((nf - 3)/(nf - 1)) * sigma2 * sigma2) / nf;
+  const se = Math.sqrt(Math.max(var_s2, 0));
+  const zCrit = 1.96;
+
+  const lower = sigma2 - zCrit * se;
+  const upper = sigma2 + zCrit * se;
+  const pass = variance >= lower && variance <= upper;
+
+  return { pass, variance, lower, upper };
+}
+
+// ========= Ejecuta TODAS las pruebas y actualiza la UI =========
 function runTests(rows){
   if (!testsSummary || !rows || rows.length === 0){
     if (testsSummary) testsSummary.innerHTML = "";
@@ -176,32 +223,82 @@ function runTests(rows){
 
   const riList = rows.map(r => r.ri);
 
-  const uni = testUniformity(riList);
-  const indep = testIndependence(riList);
-  const globalPass = uni.pass && indep.pass;
+  const meanTest = testMean(riList);
+  const varTest  = testVariance(riList);
+  const uni      = testUniformity(riList);
+  const indep    = testIndependence(riList);
 
-  const uniText = uni.pass ? "Aprobada" : "No aprobada";
-  const indepText = indep.pass ? "Aprobada" : "No aprobada";
+  const globalPass = meanTest.pass && varTest.pass && uni.pass && indep.pass;
+
   const globalText = globalPass
-    ? "Los números generados SON válidos según las pruebas."
-    : "Los números generados NO son válidos según las pruebas.";
+    ? "Los números PASAN todas las pruebas estadísticas."
+    : "Los números NO pasan todas las pruebas estadísticas.";
 
   testsSummary.innerHTML = `
-    <p><strong>Prueba de uniformidad</strong>:
-      <span class="${uni.pass ? "pass" : "fail"}">${uniText}</span>
-      (χ² = ${uni.chi2.toFixed(2)}, crítico ≈ ${uni.crit.toFixed(2)})
-    </p>
-    <p><strong>Prueba de independencia</strong>:
-      <span class="${indep.pass ? "pass" : "fail"}">${indepText}</span>
-      (ρ ≈ ${indep.corr.toFixed(3)}, se acepta si |ρ| &lt; 0.1)
-    </p>
-    <p class="global">
-      <strong>Conclusión:</strong>
-      <span class="${globalPass ? "pass" : "fail"}">${globalText}</span>
+    <div class="tests-grid">
+      <div class="test-block ${meanTest.pass ? "pass-block" : "fail-block"}">
+        <div class="test-header">
+          <span class="test-title">Prueba de Media</span>
+          <span class="badge ${meanTest.pass ? "badge-pass" : "badge-fail"}">
+            ${meanTest.pass ? "APROBADA" : "NO APROBADA"}
+          </span>
+        </div>
+        <p class="test-text">
+          Verifica si el promedio de los números generados se mantiene cercano al valor esperado 0.5 de una distribución uniforme.
+        </p>
+        <p>Media calculada: <strong>${meanTest.mean.toFixed(4)}</strong></p>
+        <p>Rango aceptado (95%): <strong>[${meanTest.lower.toFixed(4)}, ${meanTest.upper.toFixed(4)}]</strong></p>
+      </div>
+
+      <div class="test-block ${varTest.pass ? "pass-block" : "fail-block"}">
+        <div class="test-header">
+          <span class="test-title">Prueba de Varianza</span>
+          <span class="badge ${varTest.pass ? "badge-pass" : "badge-fail"}">
+            ${varTest.pass ? "APROBADA" : "NO APROBADA"}
+          </span>
+        </div>
+        <p class="test-text">
+          Evalúa si la dispersión de los números es consistente con una distribución uniforme (σ² = 1/12 ≈ 0.0833).
+        </p>
+        <p>Varianza calculada: <strong>${varTest.variance.toFixed(4)}</strong></p>
+        <p>Rango aceptado (95%): <strong>[${varTest.lower.toFixed(4)}, ${varTest.upper.toFixed(4)}]</strong></p>
+      </div>
+
+      <div class="test-block ${uni.pass ? "pass-block" : "fail-block"}">
+        <div class="test-header">
+          <span class="test-title">Uniformidad (Chi-cuadrado)</span>
+          <span class="badge ${uni.pass ? "badge-pass" : "badge-fail"}">
+            ${uni.pass ? "APROBADA" : "NO APROBADA"}
+          </span>
+        </div>
+        <p class="test-text">
+          Compara cuántos valores caen en cada intervalo con lo esperado para una distribución uniforme.
+        </p>
+        <p>χ² calculado: <strong>${uni.chi2.toFixed(4)}</strong></p>
+        <p>Valor crítico (gl = 9, 5%): <strong>${uni.crit.toFixed(4)}</strong></p>
+      </div>
+
+      <div class="test-block ${indep.pass ? "pass-block" : "fail-block"}">
+        <div class="test-header">
+          <span class="test-title">Independencia</span>
+          <span class="badge ${indep.pass ? "badge-pass" : "badge-fail"}">
+            ${indep.pass ? "APROBADA" : "NO APROBADA"}
+          </span>
+        </div>
+        <p class="test-text">
+          Analiza si existe correlación lineal fuerte entre r<sub>i</sub> y r<sub>i+1</sub>.
+        </p>
+        <p>Correlación ρ: <strong>${indep.corr.toFixed(4)}</strong></p>
+        <p>Condición: <strong>|ρ| &lt; 0.1</strong></p>
+      </div>
+    </div>
+
+    <p class="global ${globalPass ? "pass" : "fail"}">
+      <strong>Conclusión:</strong> ${globalText}
     </p>
   `;
 
-  // Botón de regenerar: solo habilitado si NO pasan las pruebas
+  // Botón de regenerar: solo habilitado si NO pasan todas
   if (btnRegenerar){
     btnRegenerar.disabled = globalPass;
   }
